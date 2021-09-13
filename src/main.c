@@ -6,6 +6,9 @@
 #define LED_ROUGE			(BIT14)
 #define LED_BLEUE			(BIT15)
 
+volatile uint32_t tick = 0;
+volatile uint32_t decount = 0;
+
 void configureLEDs(){
 	RCC->AHB1ENR |= BIT3;
 	GPIOD->MODER |= BIT24;
@@ -14,22 +17,40 @@ void configureLEDs(){
 	GPIOD->MODER |= BIT30;
 }
 
+void turnOnTheLights(){
+	GPIOD->ODR |= LED_VERTE;
+	GPIOD->ODR |= LED_ORANGE;
+	GPIOD->ODR |= LED_ROUGE;
+	GPIOD->ODR |= LED_BLEUE;
+}
+
+void turnOffTheLights(){
+	GPIOD->ODR &= ~(LED_VERTE);
+	GPIOD->ODR &= ~(LED_ORANGE);
+	GPIOD->ODR &= ~(LED_ROUGE);
+	GPIOD->ODR &= ~(LED_BLEUE);
+}
+
+void configureSysTickTimer(){
+	SysTick_Config(SystemCoreClock / 1000);
+}
+
+void SysTick_Handler(void)
+{
+	if (decount == 7) {
+		decount = 0;
+	} else if (decount == 6){
+		turnOffTheLights();
+		decount++;
+	} else {
+		turnOnTheLights();
+		decount++;
+	}
+}
+
 int main(void)
 {
-	volatile uint32_t i;
 	configureLEDs();
-	/* Infinite loop */
-	while (1)
-	{
-		GPIOD->ODR |= LED_VERTE;
-		GPIOD->ODR |= LED_ORANGE;
-		GPIOD->ODR |= LED_ROUGE;
-		GPIOD->ODR |= LED_BLEUE;
-		for(i = 0; i < 5000000; i++);
-		GPIOD->ODR &= ~(LED_VERTE);
-		GPIOD->ODR &= ~(LED_ORANGE);
-		GPIOD->ODR &= ~(LED_ROUGE);
-		GPIOD->ODR &= ~(LED_BLEUE);
-		for(i = 0; i < 5000000; i++);
-	}
+	SysTick_Config(SystemCoreClock / 4);
+	while (1);
 }
