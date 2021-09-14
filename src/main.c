@@ -12,9 +12,13 @@ volatile uint32_t decount = 0;
 void configureLEDs(){
 	RCC->AHB1ENR |= BIT3;
 	GPIOD->MODER |= BIT24;
+	GPIOD->MODER &= ~BIT25;
 	GPIOD->MODER |= BIT26;
+	GPIOD->MODER &= ~BIT27;
 	GPIOD->MODER |= BIT28;
+	GPIOD->MODER &= ~BIT29;
 	GPIOD->MODER |= BIT30;
+	GPIOD->MODER &= ~BIT31;
 }
 
 void turnOnTheLights(){
