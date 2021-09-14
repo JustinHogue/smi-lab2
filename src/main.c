@@ -5,9 +5,12 @@
 #define LED_ORANGE			(BIT13)
 #define LED_ROUGE			(BIT14)
 #define LED_BLEUE			(BIT15)
+#define SysTick_LOAD_RELOAD ((u32)0x00CD1400)//¼ of processor frequency to get an interruption every 250ms
 
 volatile uint32_t tick = 0;
-volatile uint32_t decount = 0;
+volatile uint32_t decountForSeconds = 0;
+volatile uint32_t decountForMilliSeconds = 0;
+
 
 void configureLEDs(){
 	RCC->AHB1ENR |= BIT3;
@@ -21,40 +24,56 @@ void configureLEDs(){
 	GPIOD->MODER &= ~BIT31;
 }
 
-void turnOnTheLights(){
-	GPIOD->ODR |= LED_VERTE;
-	GPIOD->ODR |= LED_ORANGE;
-	GPIOD->ODR |= LED_ROUGE;
-	GPIOD->ODR |= LED_BLEUE;
+void configureSysTick(){
+	SysTick->LOAD=SysTick_LOAD_RELOAD;
+	SysTick->VAL = 0;
+	SysTick->CTRL |= BIT2; //Clock source selection as 1: Processor clock (AHB)
+	SysTick->CTRL |= BIT1; //SysTick exception request enable
+	SysTick->CTRL |= BIT0; //Counter enable
 }
 
-void turnOffTheLights(){
-	GPIOD->ODR &= ~(LED_VERTE);
-	GPIOD->ODR &= ~(LED_ORANGE);
-	GPIOD->ODR &= ~(LED_ROUGE);
-	GPIOD->ODR &= ~(LED_BLEUE);
+void configureTIM2(){
+	RCC->APB1ENR |= BIT0; //TIM2 clock enable
+	// TODO: Determine Prescaler and Auto-Reload values!
+	//TIM2->PSC = ???;
+	TIM2->ARR = 4; //Needs to be 0.5 ms
+	TIM2->DIER |= BIT0; //Update interrupt enable
+	NVIC->ISER[0]=BIT28; //Enable TIM2 interrupt
+	TIM2->CR1 |= BIT0; //TIM2 counter enable
 }
 
-void configureSysTickTimer(){
-	SysTick_Config(SystemCoreClock / 1000);
+void TIM2_IRQHandler(){
+	if (decountForMilliSeconds != 3) {
+		GPIOD->ODR |= LED_ORANGE;
+		GPIOD->ODR |= LED_ROUGE;
+		decountForMilliSeconds++;
+	} else {
+		GPIOD->ODR &= ~(LED_ORANGE);
+		GPIOD->ODR &= ~(LED_ROUGE);
+		decountForMilliSeconds = 0;
+	}
 }
+
 
 void SysTick_Handler(void)
 {
-	if (decount == 7) {
-		decount = 0;
-	} else if (decount == 6){
-		turnOffTheLights();
-		decount++;
+	if (decountForSeconds == 7) {
+		decountForSeconds = 0;
+	} else if (decountForSeconds == 6){
+		GPIOD->ODR &= ~(LED_VERTE);
+		GPIOD->ODR &= ~(LED_BLEUE);
+		decountForSeconds++;
 	} else {
-		turnOnTheLights();
-		decount++;
+		GPIOD->ODR |= LED_VERTE;
+		GPIOD->ODR |= LED_BLEUE;
+		decountForSeconds++;
 	}
 }
 
 int main(void)
 {
 	configureLEDs();
-	SysTick_Config(SystemCoreClock / 4);
+	configureSysTick();
+	configureTIM2();
 	while (1);
 }
