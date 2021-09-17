@@ -1,16 +1,22 @@
 #include "stm32f4xx.h"
 #include "macros_utiles.h"
 
-#define LED_VERTE			(BIT12)
-#define LED_ORANGE			(BIT13)
-#define LED_ROUGE			(BIT14)
-#define LED_BLEUE			(BIT15)
-#define SYSTICK_PRESCALER		8
-#define SYSTICK_PERIOD_SECONDS		5e-4
-#define SYSTICK_LOAD_RELOAD (SystemCoreClock / SYSTICK_PRESCALER) * SYSTICK_PERIOD_SECONDS;
+#define LED_VERTE					(BIT12)
+#define LED_ORANGE					(BIT13)
+#define LED_ROUGE					(BIT14)
+#define LED_BLEUE					(BIT15)
 
-volatile uint32_t decountForSeconds = 0;
-volatile uint32_t decountForMilliSeconds = 0;
+#define SYSTICK_PERIOD_SECONDS		5e-4
+#define SYSTICK_PRESCALER			8
+#define SYSTICK_LOAD_RELOAD 		(SystemCoreClock / SYSTICK_PRESCALER) * SYSTICK_PERIOD_SECONDS
+
+#define TIM2_PERIOD_SECONDS			0.5
+#define TIM2_PREVIOUS_PRESCALERS 	2
+#define TIM2_PRESCALER 				1
+#define TIM2_AUTO_RELOAD			(SystemCoreClock / (TIM2_PREVIOUS_PRESCALERS * TIM2_PRESCALER)) * TIM2_PERIOD_SECONDS
+
+static volatile uint32_t systickCycleCounter = 0;
+static volatile uint32_t tim2CycleCounter = 0;
 
 
 void configureLEDs(){
@@ -39,39 +45,36 @@ void configureSysTick(){
 
 void configureTIM2(){
 	RCC->APB1ENR |= BIT0; //TIM2 clock enable
-	TIM2->PSC = 2*(SystemCoreClock/4)/10000-1; //Base of 10 kHz
-	TIM2->ARR = 5000-1; //Needs to be 0.5 sec to work with the if conditions
+	TIM2->PSC = TIM2_PRESCALER - 1;
+	TIM2->ARR = TIM2_AUTO_RELOAD - 1; //Needs to be 0.5 sec to work with the if conditions
 	TIM2->DIER |= BIT0; //Update interrupt enable
-	NVIC->ISER[0]=BIT28; //Enable TIM2 interrupt
+	NVIC->ISER[0] = BIT28; //Enable TIM2 interrupt
 	TIM2->CR1 |= BIT0; //TIM2 counter enable
 }
 
 void TIM2_IRQHandler(){
-	if (decountForMilliSeconds != 3) {
+	TIM2->SR &= ~BIT0;
+	if (tim2CycleCounter != 3) {
 		GPIOD->ODR |= LED_VERTE;
 		GPIOD->ODR |= LED_BLEUE;
-		decountForMilliSeconds++;
 	} else {
 		GPIOD->ODR &= ~(LED_VERTE);
 		GPIOD->ODR &= ~(LED_BLEUE);
-		decountForMilliSeconds = 0;
 	}
-	TIM2->SR &= ~BIT0;
-	TIM2->CR1 |= BIT0; //TIM2 counter enable
+	tim2CycleCounter = (tim2CycleCounter + 1) % 4;
 }
 
 
 void SysTick_Handler(void)
 {
-	if (decountForSeconds == 3) {
+	if (systickCycleCounter == 3) {
 		GPIOD->ODR &= ~(LED_ORANGE);
 		GPIOD->ODR &= ~(LED_ROUGE);
-		decountForSeconds = 0;
 	} else {
 		GPIOD->ODR |= LED_ORANGE;
 		GPIOD->ODR |= LED_ROUGE;
-		decountForSeconds++;
 	}
+	systickCycleCounter = (systickCycleCounter + 1) % 4;
 }
 
 int main(void)
