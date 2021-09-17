@@ -5,7 +5,9 @@
 #define LED_ORANGE			(BIT13)
 #define LED_ROUGE			(BIT14)
 #define LED_BLEUE			(BIT15)
-#define SysTick_LOAD_RELOAD ((u32)0x00668A00)//TODO: Find frequency to get an interruption every 0.5ms with the if
+#define SYSTICK_PRESCALER		8
+#define SYSTICK_PERIOD_SECONDS		5e-4
+#define SYSTICK_LOAD_RELOAD (SystemCoreClock / SYSTICK_PRESCALER) * SYSTICK_PERIOD_SECONDS;
 
 volatile uint32_t decountForSeconds = 0;
 volatile uint32_t decountForMilliSeconds = 0;
@@ -24,9 +26,13 @@ void configureLEDs(){
 }
 
 void configureSysTick(){
-	SysTick->LOAD=SysTick_LOAD_RELOAD;
-	SysTick->VAL = 0;
-	SysTick->CTRL |= BIT2; //Clock source selection as 1: Processor clock (AHB)
+	SysTick->LOAD = SYSTICK_LOAD_RELOAD;
+	SysTick->VAL = SYSTICK_LOAD_RELOAD;
+
+	// Makes sure we are using the ARM core's external clock, that is, the clock provided by the STM32 MCU
+	// (referred to as "to Cortex System timer" in the Clock Tree of the STM32F407's ref manual
+	SysTick->CTRL &= ~BIT2;
+
 	SysTick->CTRL |= BIT1; //SysTick exception request enable
 	SysTick->CTRL |= BIT0; //Counter enable
 }
